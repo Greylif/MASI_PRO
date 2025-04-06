@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import Toplevel, Label, Entry, Button, StringVar, OptionMenu, Menu
+from tkinter import Toplevel, Label, Entry, Button, StringVar, OptionMenu, Menu, Spinbox
+from tkinter import font
 from supabase import create_client, Client
 
 class DatabaseHandler:
@@ -22,14 +23,13 @@ class Menu_Modal:
         modal = Toplevel(self.root)
         modal.title("Podstaw")
         modal.geometry("400x100")
+        Label(modal, text="Za który uniterm chcesz podstawić operację zrównoleglenia?").pack(pady=10)
 
-        Label(modal, text="Za którą część unitermu chcesz podstawić zrównoleglenie?").pack(pady=10)
-
-        def czesc_1():
+        def uni_1():
             self.main_window.handle_dialog(True)
             modal.destroy()
 
-        def czesc_2():
+        def uni_2():
             self.main_window.handle_dialog(False)
             modal.destroy()
 
@@ -40,8 +40,8 @@ class Menu_Modal:
         button_frame = tk.Frame(modal)
         button_frame.pack(pady=10)
 
-        tk.Button(button_frame, text="1 część", command=czesc_1).pack(side=tk.LEFT, padx=5)
-        tk.Button(button_frame, text="2 część", command=czesc_2).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="1 uniterm", command=uni_1).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="2 uniterm", command=uni_2).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Anuluj", command=on_cancel).pack(side=tk.LEFT, padx=5)
 
 class ModalWindow:
@@ -74,46 +74,70 @@ class ModalWindow:
     def on_ok(self, modal):
         parts = [entry.get() for entry in self.entries if entry.get()]
         separator = self.separator_var.get()
-        text = separator.join(parts)
-        self.callback(self.mode, text, parts, separator)
+        self.callback(self.mode, parts, separator)
         modal.destroy()
 
 class MASI_PRO:
     def __init__(self, root):
         self.root = root
-        self.root.title("Linia nad tekstem")
-
-        self.canvas = tk.Canvas(root, width=800, height=400)
-        self.canvas.pack()
-
+        self.root.title("MASI_PRO_17_OA")
+    
+        main_area = tk.Frame(root)
+        main_area.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    
+        self.canvas = tk.Canvas(main_area, width=400, height=400)
+        self.canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    
         self.text_eliminacja = ""
         self.text_zrownoleglenia = ""
-
+    
         self.separator_eliminacja = ""
         self.separator_zrownoleglenia = ""
-
+    
         self.parts_eliminacja = []
         self.original_parts_eliminacja = []
         self.parts_zrownoleglenia = []
-
-
+    
+        self.current_font_family = "Arial"
+        self.current_font_size = 20
+    
+        self.font_frame = tk.Frame(root)
+        self.font_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
+    
+        Label(self.font_frame, text="Rodzaj czcionki:").pack(pady=5)
+        font_families = list(font.families())
+        self.font_family_var = StringVar()
+        self.font_family_var.set(self.current_font_family)
+        font_menu = OptionMenu(self.font_frame, self.font_family_var, *sorted(font_families), command=self.update_font)
+        font_menu.pack()
+    
+        Label(self.font_frame, text="Rozmiar czcionki:").pack(pady=5)
+        self.font_size_var = tk.IntVar()
+        self.font_size_var.set(self.current_font_size)
+        font_size_spinbox = Spinbox(self.font_frame, from_=8, to=72, textvariable=self.font_size_var, command=self.update_font)
+        font_size_spinbox.pack()
+    
         self.modal = Menu_Modal(self.root, self)
         self.create_menu()
-
-        self.button_frame = tk.Frame(root)
-        self.button_frame.pack()
-
-        self.eliminacja_button = tk.Button(self.button_frame, text="Eliminacja", command=lambda: self.open_modal("eliminacja"))
+    
+        self.button_frame = tk.Frame(main_area)
+        self.button_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=10)
+    
+        center_frame = tk.Frame(self.button_frame)
+        center_frame.pack()
+        
+        self.eliminacja_button = tk.Button(center_frame, text="Eliminacja", command=lambda: self.open_modal("eliminacja"))
         self.eliminacja_button.pack(side=tk.LEFT, padx=10)
-
-        self.zrownoleglenia_button = tk.Button(self.button_frame, text="Zrównoleglenie", command=lambda: self.open_modal("zrownoleglenia"))
+    
+        self.zrownoleglenia_button = tk.Button(center_frame, text="Zrównoleglenie", command=lambda: self.open_modal("zrownoleglenia"))
         self.zrownoleglenia_button.pack(side=tk.LEFT, padx=10)
-
-        self.clear_button = tk.Button(self.button_frame, text="Wyczyść", command=self.clear_canvas)
+    
+        self.clear_button = tk.Button(center_frame, text="Wyczyść", command=self.clear_canvas)
         self.clear_button.pack(side=tk.LEFT, padx=10)
-
+    
         self.db_handler = DatabaseHandler()
         self.modal_win = ""
+
 
     def create_menu(self):
         menubar = Menu(self.root)
@@ -133,7 +157,8 @@ class MASI_PRO:
     def open_modal(self, mode):
         self.modal_win = ModalWindow(self.root, mode, self.handle_modal_response)
 
-    def handle_modal_response(self, mode, text, parts, separator):
+    def handle_modal_response(self, mode, parts, separator):
+        text = separator.join(parts)
         if mode == "eliminacja":
             self.text_eliminacja = text
             self.parts_eliminacja = parts[:]
@@ -180,8 +205,10 @@ class MASI_PRO:
         shift_amount = 0
         separator_width = 10
 
+        selected_font = (self.current_font_family, self.current_font_size, "bold")
+
         if self.text_eliminacja:
-            text_id = self.canvas.create_text(x_start, y_text, text=self.text_eliminacja, anchor="w", font=("Arial", 20, "bold"))
+            text_id = self.canvas.create_text(x_start, y_text, text=self.text_eliminacja, anchor="w", font=selected_font)
             bbox = self.canvas.bbox(text_id)
             if bbox:
                 text_width = bbox[2] - bbox[0]
@@ -191,14 +218,14 @@ class MASI_PRO:
                 self.canvas.create_line(x_start + text_width + 5, y_line - 5, x_start + text_width + 5, y_line + 5, width=4)
 
                 if shift_line and self.original_parts_eliminacja:
-                    text_id = self.canvas.create_text(x_start, y_text, text=self.original_parts_eliminacja[0], anchor="w", font=("Arial", 20, "bold"))
+                    text_id = self.canvas.create_text(x_start, y_text, text=self.original_parts_eliminacja[0], anchor="w", font=selected_font)
                     bbox = self.canvas.bbox(text_id)
                     if bbox:
                         shift_amount = bbox[2] - bbox[0] + separator_width
 
         if self.text_zrownoleglenia:
             y_text = 130
-            text_id = self.canvas.create_text(x_start, y_text, text=self.text_zrownoleglenia, anchor="w", font=("Arial", 20, "bold"))
+            text_id = self.canvas.create_text(x_start, y_text, text=self.text_zrownoleglenia, anchor="w", font=selected_font)
             bbox = self.canvas.bbox(text_id)
             if bbox:
                 text_width = bbox[2] - bbox[0]
@@ -211,6 +238,11 @@ class MASI_PRO:
                     self.canvas.create_line(x_start - 2 + shift_amount, 57, x_start + text_width + 2 + shift_amount, 57, width=4)
                     self.canvas.create_line(x_start - 2 + shift_amount, 55, x_start - 2 + shift_amount, 72, width=4)
                     self.canvas.create_line(x_start + text_width + 2 + shift_amount, 55, x_start + text_width + 2 + shift_amount, 72, width=4)
+
+    def update_font(self, *_):
+        self.current_font_family = self.font_family_var.get()
+        self.current_font_size = self.font_size_var.get()
+        self.draw_uniterm()
 
 if __name__ == "__main__":
     root = tk.Tk()
